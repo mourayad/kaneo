@@ -7,6 +7,7 @@ import db from "../database";
 import { projectTable, taskRelationTable, taskTable } from "../database/schema";
 import { validateWorkspaceAccess } from "../utils/validate-workspace-access";
 import { workspaceAccess } from "../utils/workspace-access-middleware";
+import { assertAdminWorkspaceRole } from "../utils/workspace-role";
 import createTaskRelation from "./controllers/create-task-relation";
 import deleteTaskRelation from "./controllers/delete-task-relation";
 import getTaskRelations from "./controllers/get-task-relations";
@@ -86,6 +87,9 @@ const taskRelation = new Hono<{
         throw new HTTPException(404, { message: "Source task not found" });
       }
       await validateWorkspaceAccess(userId, task.workspaceId);
+      // Cross-task relations are admin-only for safety — members cannot
+      // express dependencies between someone else's tasks.
+      await assertAdminWorkspaceRole(userId, task.workspaceId);
       return next();
     },
     async (c) => {
@@ -140,6 +144,7 @@ const taskRelation = new Hono<{
         throw new HTTPException(404, { message: "Task not found" });
       }
       await validateWorkspaceAccess(userId, task.workspaceId);
+      await assertAdminWorkspaceRole(userId, task.workspaceId);
       return next();
     },
     async (c) => {

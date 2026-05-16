@@ -3,6 +3,7 @@ import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import useCancelInvitation from "@/hooks/mutations/workspace-user/use-cancel-invitation";
 import useDeleteWorkspaceUser from "@/hooks/mutations/workspace-user/use-delete-workspace-user";
+import { useWorkspacePermission } from "@/hooks/use-workspace-permission";
 import { formatDateMedium } from "@/lib/format";
 import { toast } from "@/lib/toast";
 import { Route } from "@/routes/_layout/_authenticated/dashboard/workspace/$workspaceId/members";
@@ -46,6 +47,7 @@ function MembersTable({
   const { t } = useTranslation();
   const { user: currentUser } = useAuth();
   const { workspaceId } = Route.useParams();
+  const { isAdmin } = useWorkspacePermission();
   const { mutateAsync: deleteWorkspaceUser, isPending } =
     useDeleteWorkspaceUser();
   const { mutateAsync: cancelInvitation, isPending: isCancelling } =
@@ -165,18 +167,20 @@ function MembersTable({
                   </span>
                 </TableCell>
                 <TableCell className="py-3 pr-6 text-right">
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      setInvitationToCancel(invitation);
-                    }}
-                    className="h-8 w-8 text-muted-foreground hover:text-destructive hover:bg-destructive/10"
-                    aria-label={t("team:membersTable.ariaCancelInvitation")}
-                  >
-                    <Trash2 className="h-4 w-4" />
-                  </Button>
+                  {isAdmin ? (
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setInvitationToCancel(invitation);
+                      }}
+                      className="h-8 w-8 text-muted-foreground hover:text-destructive hover:bg-destructive/10"
+                      aria-label={t("team:membersTable.ariaCancelInvitation")}
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  ) : null}
                 </TableCell>
               </TableRow>
             ))}
@@ -210,7 +214,7 @@ function MembersTable({
                 </span>
               </TableCell>
               <TableCell className="py-3 pr-6 text-right">
-                {currentUser?.id !== member.userId && (
+                {isAdmin && currentUser?.id !== member.userId && (
                   <Button
                     variant="ghost"
                     size="icon"

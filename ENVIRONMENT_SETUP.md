@@ -50,6 +50,13 @@ Kaneo supports many optional configuration options including:
 - CORS configuration
 - Redis for horizontal scaling
 
+#### Registration / Access Control
+
+- `DISABLE_REGISTRATION` — Set to `true` to disable public sign-up. When enabled, account creation only succeeds through a valid workspace invitation (the invited email plus a matching `invitationId` are required). Invitation acceptance, sign-in, and OAuth flows still work; only direct sign-up is blocked. Defaults to `false`.
+- `DISABLE_PASSWORD_REGISTRATION` — Set to `true` to block the email/password sign-up endpoint specifically. Useful when only social/OIDC sign-up should be allowed. Defaults to `false`.
+- `DISABLE_GUEST_ACCESS` — Set to `true` to disable the anonymous "guest" sign-in plugin. Defaults to `false`.
+- `WORKSPACE_CREATION_ALLOWED_EMAILS` — Comma-separated list of emails permitted to create new workspaces. When empty/unset, all authenticated users may create workspaces (current behaviour). When set, only listed emails can create workspaces — both via the Better Auth organization API and via the UI. Comparison is case-insensitive and trimmed. Example: `owner@example.com, admin@example.com`. Existing workspace owners/admins always retain control over the workspaces they already own.
+
 #### Redis Configuration
 
 Kaneo supports three Redis deployment modes for WebSocket Pub/Sub. When any Redis mode is configured, WebSocket broadcasts use Redis Pub/Sub, allowing multiple API instances to relay real-time updates. When none are set, an in-memory adapter is used (single-instance only).

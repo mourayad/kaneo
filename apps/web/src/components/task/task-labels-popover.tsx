@@ -12,6 +12,7 @@ import useCreateLabel from "@/hooks/mutations/label/use-create-label";
 import useDeleteLabel from "@/hooks/mutations/label/use-delete-label";
 import useGetLabelsByTask from "@/hooks/queries/label/use-get-labels-by-task";
 import useGetLabelsByWorkspace from "@/hooks/queries/label/use-get-labels-by-workspace";
+import { useWorkspacePermission } from "@/hooks/use-workspace-permission";
 import { cn } from "@/lib/cn";
 import { toast } from "@/lib/toast";
 import type Task from "@/types/task";
@@ -63,6 +64,7 @@ export default function TaskLabelsPopover({
 
   const searchInputRef = useRef<HTMLInputElement>(null);
   const queryClient = useQueryClient();
+  const { canEditTask } = useWorkspacePermission();
 
   const { mutateAsync: createLabel } = useCreateLabel();
   const { mutateAsync: deleteLabel } = useDeleteLabel();
@@ -312,6 +314,10 @@ export default function TaskLabelsPopover({
       </div>
     </div>
   );
+
+  if (!canEditTask(task)) {
+    return <>{children}</>;
+  }
 
   return (
     <Popover open={open} onOpenChange={setOpen}>

@@ -3,6 +3,7 @@ import { describeRoute, resolver, validator } from "hono-openapi";
 import * as v from "valibot";
 import { projectSchema } from "../schemas";
 import { workspaceAccess } from "../utils/workspace-access-middleware";
+import { assertAdminWorkspaceRole } from "../utils/workspace-role";
 import archiveProjectCtrl from "./controllers/archive-project";
 import createProjectCtrl from "./controllers/create-project";
 import deleteProjectCtrl from "./controllers/delete-project";
@@ -78,6 +79,7 @@ const project = new Hono<{
     async (c) => {
       const { name, icon, slug } = c.req.valid("json");
       const workspaceId = c.get("workspaceId");
+      await assertAdminWorkspaceRole(c.get("userId"), workspaceId);
       const newProject = await createProjectCtrl(workspaceId, name, icon, slug);
       return c.json(newProject);
     },
@@ -137,6 +139,7 @@ const project = new Hono<{
       const { id } = c.req.valid("param");
       const { name, icon, slug, description, isPublic } = c.req.valid("json");
       const workspaceId = c.get("workspaceId");
+      await assertAdminWorkspaceRole(c.get("userId"), workspaceId);
       const updatedProject = await updateProjectCtrl(
         id,
         name,
@@ -169,6 +172,7 @@ const project = new Hono<{
     async (c) => {
       const { id } = c.req.valid("param");
       const workspaceId = c.get("workspaceId");
+      await assertAdminWorkspaceRole(c.get("userId"), workspaceId);
       const deletedProject = await deleteProjectCtrl(id, workspaceId);
       return c.json(deletedProject);
     },
@@ -193,6 +197,7 @@ const project = new Hono<{
     async (c) => {
       const { id } = c.req.valid("param");
       const workspaceId = c.get("workspaceId");
+      await assertAdminWorkspaceRole(c.get("userId"), workspaceId);
       const archivedProject = await archiveProjectCtrl(id, workspaceId);
       return c.json(archivedProject);
     },
@@ -217,6 +222,7 @@ const project = new Hono<{
     async (c) => {
       const { id } = c.req.valid("param");
       const workspaceId = c.get("workspaceId");
+      await assertAdminWorkspaceRole(c.get("userId"), workspaceId);
       const unarchivedProject = await unarchiveProjectCtrl(id, workspaceId);
       return c.json(unarchivedProject);
     },

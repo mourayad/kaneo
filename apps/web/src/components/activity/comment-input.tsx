@@ -12,7 +12,9 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import useCreateComment from "@/hooks/mutations/comment/use-create-comment";
+import useGetTask from "@/hooks/queries/task/use-get-task";
 import { getModifierKeyText } from "@/hooks/use-keyboard-shortcuts";
+import { useWorkspacePermission } from "@/hooks/use-workspace-permission";
 import { cn } from "@/lib/cn";
 import { toast } from "@/lib/toast";
 
@@ -26,6 +28,9 @@ export default function CommentInput({ taskId }: CommentInputProps) {
   const [attachAction, setAttachAction] = useState<(() => void) | null>(null);
   const { mutateAsync: createComment, isPending } = useCreateComment();
   const queryClient = useQueryClient();
+  const { data: task } = useGetTask(taskId);
+  const { canCommentOnTask } = useWorkspacePermission();
+  const canComment = canCommentOnTask(task);
 
   const handleSubmit = useCallback(async () => {
     if (!content.trim()) {
@@ -55,6 +60,8 @@ export default function CommentInput({ taskId }: CommentInputProps) {
     },
     [],
   );
+
+  if (!canComment) return null;
 
   return (
     <div className="w-full">

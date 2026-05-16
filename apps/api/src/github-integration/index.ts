@@ -14,6 +14,7 @@ import { handleGitHubWebhook } from "../plugins/github/webhook-handler";
 import { githubIntegrationSchema } from "../schemas";
 import { validateWorkspaceAccess } from "../utils/validate-workspace-access";
 import { workspaceAccess } from "../utils/workspace-access-middleware";
+import { assertAdminWorkspaceRole } from "../utils/workspace-role";
 import createGithubIntegration from "./controllers/create-github-integration";
 import deleteGithubIntegration from "./controllers/delete-github-integration";
 import getGithubIntegration from "./controllers/get-github-integration";
@@ -184,6 +185,7 @@ const githubIntegration = new Hono<{
     async (c) => {
       const { projectId } = c.req.valid("param");
       const { repositoryOwner, repositoryName } = c.req.valid("json");
+      await assertAdminWorkspaceRole(c.get("userId"), c.get("workspaceId"));
 
       const integration = await createGithubIntegration({
         projectId,
@@ -229,6 +231,7 @@ const githubIntegration = new Hono<{
     async (c) => {
       const { projectId } = c.req.valid("param");
       const body = c.req.valid("json");
+      await assertAdminWorkspaceRole(c.get("userId"), c.get("workspaceId"));
 
       const row = await db.query.integrationTable.findFirst({
         where: and(
@@ -302,6 +305,7 @@ const githubIntegration = new Hono<{
     workspaceAccess.fromProject("projectId"),
     async (c) => {
       const { projectId } = c.req.valid("param");
+      await assertAdminWorkspaceRole(c.get("userId"), c.get("workspaceId"));
       const result = await deleteGithubIntegration(projectId);
       return c.json(result);
     },
@@ -350,6 +354,7 @@ const githubIntegration = new Hono<{
 
       await validateWorkspaceAccess(userId, project.workspaceId, apiKeyId);
       c.set("workspaceId", project.workspaceId);
+      await assertAdminWorkspaceRole(userId, project.workspaceId);
 
       return next();
     },

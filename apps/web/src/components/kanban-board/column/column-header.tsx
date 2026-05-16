@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import CreateTaskModal from "@/components/shared/modals/create-task-modal";
 import { useUpdateTask } from "@/hooks/mutations/task/use-update-task";
+import { useWorkspacePermission } from "@/hooks/use-workspace-permission";
 import { getColumnIcon } from "@/lib/column";
 import { toast } from "@/lib/toast";
 import useProjectStore from "@/store/project";
@@ -18,9 +19,12 @@ export function ColumnHeader({ column }: ColumnHeaderProps) {
   const { t } = useTranslation();
   const { project, setProject } = useProjectStore();
   const { mutate: updateTask } = useUpdateTask();
+  const { isAdmin, canCreateTaskInStatus } = useWorkspacePermission();
 
   const [isArchiveModalOpen, setIsArchiveModalOpen] = useState(false);
   const [isTaskModalOpen, setIsTaskModalOpen] = useState(false);
+
+  const canCreateInThisColumn = canCreateTaskInStatus(column.id);
 
   const handleConfirmArchive = () => {
     if (!column.isFinal || !project) return;
@@ -61,7 +65,7 @@ export function ColumnHeader({ column }: ColumnHeaderProps) {
       </div>
 
       <div className="flex items-center">
-        {column.isFinal && column.tasks.length > 0 && (
+        {isAdmin && column.isFinal && column.tasks.length > 0 && (
           <button
             type="button"
             onClick={() => setIsArchiveModalOpen(true)}
@@ -71,22 +75,26 @@ export function ColumnHeader({ column }: ColumnHeaderProps) {
             <Archive className="w-4 h-4 text-muted-foreground" />
           </button>
         )}
-        <button
-          type="button"
-          onClick={() => setIsTaskModalOpen(true)}
-          className="flex items-center rounded-md px-2 py-1 text-left text-muted-foreground transition-all hover:bg-accent/50"
-          title={t("tasks:kanban.addTask")}
-        >
-          <Plus className="w-4 h-4 text-muted-foreground" />
-        </button>
+        {canCreateInThisColumn ? (
+          <button
+            type="button"
+            onClick={() => setIsTaskModalOpen(true)}
+            className="flex items-center rounded-md px-2 py-1 text-left text-muted-foreground transition-all hover:bg-accent/50"
+            title={t("tasks:kanban.addTask")}
+          >
+            <Plus className="w-4 h-4 text-muted-foreground" />
+          </button>
+        ) : null}
       </div>
 
-      <CreateTaskModal
-        open={isTaskModalOpen}
-        onClose={() => setIsTaskModalOpen(false)}
-        projectId={project?.id}
-        status={column.id}
-      />
+      {canCreateInThisColumn ? (
+        <CreateTaskModal
+          open={isTaskModalOpen}
+          onClose={() => setIsTaskModalOpen(false)}
+          projectId={project?.id}
+          status={column.id}
+        />
+      ) : null}
 
       <ArchiveTasksModal
         open={isArchiveModalOpen}

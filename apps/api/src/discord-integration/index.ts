@@ -13,6 +13,7 @@ import {
 } from "../plugins/discord/config";
 import { discordIntegrationSchema } from "../schemas";
 import { workspaceAccess } from "../utils/workspace-access-middleware";
+import { assertAdminWorkspaceRole } from "../utils/workspace-role";
 
 const discordIntegration = new Hono<{
   Variables: {
@@ -151,6 +152,7 @@ discordIntegration
     async (c) => {
       const { projectId } = c.req.valid("param");
       const body = c.req.valid("json");
+      await assertAdminWorkspaceRole(c.get("userId"), c.get("workspaceId"));
 
       const config = normalizeDiscordConfig({
         webhookUrl: body.webhookUrl,
@@ -215,6 +217,7 @@ discordIntegration
     async (c) => {
       const { projectId } = c.req.valid("param");
       const body = c.req.valid("json");
+      await assertAdminWorkspaceRole(c.get("userId"), c.get("workspaceId"));
 
       const existing = await db.query.integrationTable.findFirst({
         where: and(
@@ -288,6 +291,7 @@ discordIntegration
     workspaceAccess.fromProject("projectId"),
     async (c) => {
       const { projectId } = c.req.valid("param");
+      await assertAdminWorkspaceRole(c.get("userId"), c.get("workspaceId"));
 
       const existing = await db.query.integrationTable.findFirst({
         where: and(
