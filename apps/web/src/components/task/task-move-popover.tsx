@@ -19,6 +19,7 @@ import {
 import { useMoveTask } from "@/hooks/mutations/task/use-move-task";
 import useGetProjects from "@/hooks/queries/project/use-get-projects";
 import { useGetTasks } from "@/hooks/queries/task/use-get-tasks";
+import { useWorkspacePermission } from "@/hooks/use-workspace-permission";
 import { cn } from "@/lib/cn";
 import { getStatusLabel } from "@/lib/i18n/domain";
 import type Task from "@/types/task";
@@ -42,6 +43,7 @@ export default function TaskMovePopover({
   const [selectedStatus, setSelectedStatus] = useState("");
   const { data: projects = [] } = useGetProjects({ workspaceId });
   const { mutateAsync: moveTask, isPending: isMovePending } = useMoveTask();
+  const { canMoveTask } = useWorkspacePermission();
   const destinationProjectId = selectedProjectId || "";
   const {
     data: destinationProject,
@@ -121,7 +123,7 @@ export default function TaskMovePopover({
     }
   };
 
-  if (destinationProjects.length === 0) {
+  if (destinationProjects.length === 0 || !canMoveTask()) {
     return null;
   }
 

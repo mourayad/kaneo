@@ -8,6 +8,7 @@ import InviteTeamMemberModal from "@/components/team/invite-team-member-modal";
 import MembersTable from "@/components/team/members-table";
 import { Button } from "@/components/ui/button";
 import useGetFullWorkspace from "@/hooks/queries/workspace/use-get-full-workspace";
+import { useWorkspacePermission } from "@/hooks/use-workspace-permission";
 
 export const Route = createFileRoute(
   "/_layout/_authenticated/dashboard/workspace/$workspaceId/members",
@@ -19,6 +20,7 @@ function RouteComponent() {
   const { t } = useTranslation();
   const { workspaceId } = Route.useParams();
   const { data: workspace } = useGetFullWorkspace({ workspaceId });
+  const { isAdmin } = useWorkspacePermission();
 
   const [isInviteTeamMemberModalOpen, setIsInviteTeamMemberModalOpen] =
     useState(false);
@@ -32,23 +34,27 @@ function RouteComponent() {
       <WorkspaceLayout
         title={t("team:members.pageTitle")}
         headerActions={
-          <Button
-            onClick={() => setIsInviteTeamMemberModalOpen(true)}
-            variant="outline"
-            size="xs"
-            className="gap-1 w-full md:w-auto"
-          >
-            <UserPlus className="w-3 h-3" />
-            {t("team:members.inviteMember")}
-          </Button>
+          isAdmin ? (
+            <Button
+              onClick={() => setIsInviteTeamMemberModalOpen(true)}
+              variant="outline"
+              size="xs"
+              className="gap-1 w-full md:w-auto"
+            >
+              <UserPlus className="w-3 h-3" />
+              {t("team:members.inviteMember")}
+            </Button>
+          ) : null
         }
       >
         <MembersTable users={users ?? []} invitations={userInvitations ?? []} />
 
-        <InviteTeamMemberModal
-          open={isInviteTeamMemberModalOpen}
-          onClose={() => setIsInviteTeamMemberModalOpen(false)}
-        />
+        {isAdmin ? (
+          <InviteTeamMemberModal
+            open={isInviteTeamMemberModalOpen}
+            onClose={() => setIsInviteTeamMemberModalOpen(false)}
+          />
+        ) : null}
       </WorkspaceLayout>
     </>
   );

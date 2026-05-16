@@ -9,6 +9,7 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover";
 import { useUpdateTaskDueDate } from "@/hooks/mutations/task/use-update-task-due-date";
+import { useWorkspacePermission } from "@/hooks/use-workspace-permission";
 import { toast } from "@/lib/toast";
 import type Task from "@/types/task";
 
@@ -24,6 +25,7 @@ export default function TaskDueDatePopover({
   const { t } = useTranslation();
   const [open, setOpen] = useState(false);
   const { mutateAsync: updateTaskDueDate } = useUpdateTaskDueDate();
+  const { canEditTask } = useWorkspacePermission();
 
   const handleDateChange = async (date: Date | undefined) => {
     try {
@@ -43,32 +45,34 @@ export default function TaskDueDatePopover({
   };
 
   return (
-    <Popover open={open} onOpenChange={setOpen}>
+    <Popover open={open} onOpenChange={canEditTask(task) ? setOpen : () => {}}>
       <PopoverTrigger asChild>{children}</PopoverTrigger>
-      <PopoverContent className="p-0" align="start">
-        <Calendar
-          mode="single"
-          selected={task.dueDate ? new Date(task.dueDate) : undefined}
-          onSelect={handleDateChange}
-          disabled={
-            task.startDate ? { before: new Date(task.startDate) } : undefined
-          }
-          className="w-full bg-popover"
-        />
-        {task.dueDate && (
-          <div className="pt-2 border-t border-border">
-            <Button
-              variant="ghost"
-              size="sm"
-              className="w-full justify-start gap-2 text-muted-foreground hover:text-foreground"
-              onClick={() => handleDateChange(undefined)}
-            >
-              <X className="h-4 w-4" />
-              {t("tasks:popover.dueDate.clear")}
-            </Button>
-          </div>
-        )}
-      </PopoverContent>
+      {canEditTask(task) ? (
+        <PopoverContent className="p-0" align="start">
+          <Calendar
+            mode="single"
+            selected={task.dueDate ? new Date(task.dueDate) : undefined}
+            onSelect={handleDateChange}
+            disabled={
+              task.startDate ? { before: new Date(task.startDate) } : undefined
+            }
+            className="w-full bg-popover"
+          />
+          {task.dueDate && (
+            <div className="pt-2 border-t border-border">
+              <Button
+                variant="ghost"
+                size="sm"
+                className="w-full justify-start gap-2 text-muted-foreground hover:text-foreground"
+                onClick={() => handleDateChange(undefined)}
+              >
+                <X className="h-4 w-4" />
+                {t("tasks:popover.dueDate.clear")}
+              </Button>
+            </div>
+          )}
+        </PopoverContent>
+      ) : null}
     </Popover>
   );
 }

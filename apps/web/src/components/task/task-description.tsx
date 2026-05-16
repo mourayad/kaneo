@@ -49,6 +49,7 @@ import {
 } from "@/components/ui/menu";
 import { useUpdateTaskDescription } from "@/hooks/mutations/task/use-update-task-description";
 import useGetTask from "@/hooks/queries/task/use-get-task";
+import { useWorkspacePermission } from "@/hooks/use-workspace-permission";
 import { cn } from "@/lib/cn";
 import debounce from "@/lib/debounce";
 import { parseTaskListMarkdownToNodes } from "@/lib/editor-task-list-paste";
@@ -256,6 +257,8 @@ export default function TaskDescription({ taskId }: TaskDescriptionProps) {
   const { t } = useTranslation();
   const { data: task } = useGetTask(taskId);
   const { mutateAsync: updateTaskDescription } = useUpdateTaskDescription();
+  const { canEditTask } = useWorkspacePermission();
+  const isEditable = canEditTask(task);
 
   const editorShellRef = useRef<HTMLDivElement | null>(null);
   const imageInputRef = useRef<HTMLInputElement | null>(null);
@@ -536,6 +539,7 @@ export default function TaskDescription({ taskId }: TaskDescriptionProps) {
 
   const editor = useEditor(
     {
+      editable: isEditable,
       immediatelyRender: false,
       extensions: [
         StarterKit.configure({
@@ -747,8 +751,15 @@ export default function TaskDescription({ taskId }: TaskDescriptionProps) {
         debouncedUpdate(markdown);
       },
     },
-    [getOverlayPosition, handleAssetFileUpload, t, toShikiLanguage],
+    [getOverlayPosition, handleAssetFileUpload, t, toShikiLanguage, isEditable],
   );
+
+  useEffect(() => {
+    if (!editor) return;
+    if (editor.isEditable !== isEditable) {
+      editor.setEditable(isEditable);
+    }
+  }, [editor, isEditable]);
 
   useEffect(() => {
     if (!editor || !shikiHighlighter) return;

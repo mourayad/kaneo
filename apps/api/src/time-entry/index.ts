@@ -1,8 +1,13 @@
+import { eq } from "drizzle-orm";
 import { Hono } from "hono";
+import { HTTPException } from "hono/http-exception";
 import { describeRoute, resolver, validator } from "hono-openapi";
 import * as v from "valibot";
+import db from "../database";
+import { timeEntryTable } from "../database/schema";
 import { timeEntrySchema } from "../schemas";
 import { workspaceAccess } from "../utils/workspace-access-middleware";
+import { assertOwnTodoTask } from "../utils/workspace-role";
 import createTimeEntry from "./controllers/create-time-entry";
 import getTimeEntriesByTaskId from "./controllers/get-time-entries";
 import getTimeEntry from "./controllers/get-time-entry";
@@ -11,6 +16,7 @@ import updateTimeEntry from "./controllers/update-time-entry";
 const timeEntry = new Hono<{
   Variables: {
     userId: string;
+    workspaceId: string;
   };
 }>()
   .get(
@@ -87,6 +93,7 @@ const timeEntry = new Hono<{
     async (c) => {
       const { taskId, startTime, endTime, description } = c.req.valid("json");
       const userId = c.get("userId");
+      await assertOwnTodoTask(taskId, userId);
       const timeEntry = await createTimeEntry({
         taskId,
         userId,
@@ -125,6 +132,16 @@ const timeEntry = new Hono<{
     async (c) => {
       const { id } = c.req.valid("param");
       const { startTime, endTime, description } = c.req.valid("json");
+      const userId = c.get("userId");
+      const [existing] = await db
+        .select({ taskId: timeEntryTable.taskId })
+        .from(timeEntryTable)
+        .where(eq(timeEntryTable.id, id))
+        .limit(1);
+      if (!existing) {
+        throw new HTTPException(404, { message: "Time entry not found" });
+      }
+      await assertOwnTodoTask(existing.taskId, userId);
       const timeEntry = await updateTimeEntry({
         timeEntryId: id,
         startTime: new Date(startTime),

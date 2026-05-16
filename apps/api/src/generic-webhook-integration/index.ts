@@ -13,6 +13,7 @@ import {
 } from "../plugins/generic-webhook/config";
 import { genericWebhookIntegrationSchema } from "../schemas";
 import { workspaceAccess } from "../utils/workspace-access-middleware";
+import { assertAdminWorkspaceRole } from "../utils/workspace-role";
 
 const genericWebhookIntegration = new Hono<{
   Variables: {
@@ -143,6 +144,7 @@ genericWebhookIntegration
     async (c) => {
       const { projectId } = c.req.valid("param");
       const body = c.req.valid("json");
+      await assertAdminWorkspaceRole(c.get("userId"), c.get("workspaceId"));
 
       const config = normalizeGenericWebhookConfig({
         webhookUrl: body.webhookUrl,
@@ -216,6 +218,7 @@ genericWebhookIntegration
     async (c) => {
       const { projectId } = c.req.valid("param");
       const body = c.req.valid("json");
+      await assertAdminWorkspaceRole(c.get("userId"), c.get("workspaceId"));
 
       const existing = await db.query.integrationTable.findFirst({
         where: and(
@@ -288,6 +291,7 @@ genericWebhookIntegration
     workspaceAccess.fromProject("projectId"),
     async (c) => {
       const { projectId } = c.req.valid("param");
+      await assertAdminWorkspaceRole(c.get("userId"), c.get("workspaceId"));
 
       const existing = await db.query.integrationTable.findFirst({
         where: and(

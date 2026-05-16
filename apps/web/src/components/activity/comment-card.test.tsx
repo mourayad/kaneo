@@ -20,6 +20,16 @@ vi.mock("@/hooks/mutations/comment/use-update-comment", () => ({
   }),
 }));
 
+vi.mock("@/hooks/queries/task/use-get-task", () => ({
+  default: () => ({ data: null }),
+}));
+
+vi.mock("@/hooks/use-workspace-permission", () => ({
+  useWorkspacePermission: () => ({
+    canCommentOnTask: () => true,
+  }),
+}));
+
 vi.mock("react-i18next", () => ({
   useTranslation: () => ({
     t: (key: string) => key,

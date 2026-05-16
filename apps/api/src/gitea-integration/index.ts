@@ -11,6 +11,7 @@ import { handleGiteaWebhookRequest } from "../plugins/gitea/webhook-handler";
 import { giteaIntegrationSchema } from "../schemas";
 import { validateWorkspaceAccess } from "../utils/validate-workspace-access";
 import { workspaceAccess } from "../utils/workspace-access-middleware";
+import { assertAdminWorkspaceRole } from "../utils/workspace-role";
 import createGiteaIntegration from "./controllers/create-gitea-integration";
 import deleteGiteaIntegration from "./controllers/delete-gitea-integration";
 import getGiteaIntegration from "./controllers/get-gitea-integration";
@@ -183,6 +184,7 @@ const giteaIntegration = new Hono<{
     async (c) => {
       const { projectId } = c.req.valid("param");
       const body = c.req.valid("json");
+      await assertAdminWorkspaceRole(c.get("userId"), c.get("workspaceId"));
       await createGiteaIntegration({
         projectId,
         baseUrl: body.baseUrl,
@@ -226,6 +228,7 @@ const giteaIntegration = new Hono<{
     async (c) => {
       const { projectId } = c.req.valid("param");
       const body = c.req.valid("json");
+      await assertAdminWorkspaceRole(c.get("userId"), c.get("workspaceId"));
 
       const row = await db.query.integrationTable.findFirst({
         where: and(
@@ -309,6 +312,7 @@ const giteaIntegration = new Hono<{
     workspaceAccess.fromProject("projectId"),
     async (c) => {
       const { projectId } = c.req.valid("param");
+      await assertAdminWorkspaceRole(c.get("userId"), c.get("workspaceId"));
       const result = await deleteGiteaIntegration(projectId);
       return c.json(result);
     },
@@ -359,6 +363,7 @@ const giteaIntegration = new Hono<{
 
       await validateWorkspaceAccess(userId, project.workspaceId, apiKeyId);
       c.set("workspaceId", project.workspaceId);
+      await assertAdminWorkspaceRole(userId, project.workspaceId);
 
       return next();
     },

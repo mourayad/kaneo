@@ -170,7 +170,7 @@ describe("API integration: task creation", () => {
   });
 
   it("creates an unassigned task with parsed dates when optional fields are provided", async () => {
-    const member = await createWorkspaceMember();
+    const member = await createWorkspaceMember({ role: "admin" });
     const { project, columns } = await createProjectFixture({
       workspaceId: member.workspace.id,
     });
@@ -230,7 +230,7 @@ describe("API integration: task creation", () => {
   });
 
   it("creates tasks without a column when the status has no matching project column", async () => {
-    const member = await createWorkspaceMember();
+    const member = await createWorkspaceMember({ role: "admin" });
     const { project } = await createProjectFixture({
       workspaceId: member.workspace.id,
     });

@@ -21,11 +21,13 @@ import {
 } from "better-auth/plugins";
 import { config } from "dotenv-mono";
 import { eq } from "drizzle-orm";
+import { ac, roles } from "./auth-permissions";
 import db, { schema } from "./database";
 import { publishEvent } from "./events";
 import { checkRegistrationAllowed } from "./utils/check-registration-allowed";
 import { generateDemoName } from "./utils/generate-demo-name";
 import { getGithubSsoOAuthCredentials } from "./utils/github-sso-env";
+import { canEmailCreateWorkspace } from "./utils/workspace-role";
 
 config();
 
@@ -228,6 +230,8 @@ export const auth = betterAuth({
     organization({
       // creatorRole: "admin", // maybe will want this "The role of the user who creates the organization."
       // invitationLimit and other fields like this may be beneficial as well
+      ac,
+      roles,
       teams: {
         enabled: true,
         maximumTeams: 10,
@@ -265,7 +269,9 @@ export const auth = betterAuth({
           },
         },
       },
-      allowUserToCreateOrganization: true,
+      allowUserToCreateOrganization: async (user) => {
+        return canEmailCreateWorkspace(user?.email);
+      },
       organizationHooks: {
         afterCreateOrganization: async ({ organization, user }) => {
           publishEvent("workspace.created", {
