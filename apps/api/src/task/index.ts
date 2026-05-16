@@ -382,14 +382,18 @@ const task = new Hono<{
         if (
           userId !== undefined &&
           userId !== null &&
-          userId !== currentUserId
+          userId !== ownership.assigneeId
         ) {
+          // Explicit reassignment attempts are rejected; updateTaskAssignee
+          // remains the only entrypoint (admin-only) for changing the assignee.
           throw new HTTPException(403, {
             message: "Members cannot reassign tasks",
           });
         }
-        // Keep assignee/projectId/status pinned to existing ownership.
-        resolvedAssigneeId = currentUserId;
+        // Preserve the admin-set assignee/project/status — members must not
+        // mutate any of these by side-effect when editing fields they DO own
+        // (title/description/priority/dueDate are handled by dedicated routes).
+        resolvedAssigneeId = ownership.assigneeId;
         resolvedProjectId = ownership.projectId;
         resolvedStatus = TODO_STATUS_SLUG;
       }

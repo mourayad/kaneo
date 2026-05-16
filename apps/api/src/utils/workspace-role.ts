@@ -90,6 +90,7 @@ export type TaskOwnershipContext = {
   projectId: string;
   workspaceId: string;
   createdBy: string | null;
+  assigneeId: string | null;
   status: string;
   role: NonNullable<WorkspaceRole>;
 };
@@ -119,6 +120,7 @@ export async function assertOwnTodoTask(
       projectId: taskTable.projectId,
       workspaceId: projectTable.workspaceId,
       createdBy: taskTable.createdBy,
+      assigneeId: taskTable.userId,
       status: taskTable.status,
     })
     .from(taskTable)

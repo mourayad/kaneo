@@ -28,11 +28,14 @@ function SettingsLayout() {
   const { data: projects } = useGetProjects({
     workspaceId: workspace?.id ?? "",
   });
-  const { isAdmin } = useWorkspacePermission();
+  const { isAdmin, role } = useWorkspacePermission();
 
   // Members must never reach workspace or project mutation pages even by typing
   // the URL — bounce them to their account settings. Backend still enforces.
+  // Wait for role to hydrate first so we don't false-positively redirect
+  // admins during the initial workspace-user query.
   useEffect(() => {
+    if (role === undefined) return;
     if (isAdmin) return;
     const pathname = location.pathname;
     if (
@@ -44,7 +47,7 @@ function SettingsLayout() {
         replace: true,
       });
     }
-  }, [isAdmin, location.pathname, navigate]);
+  }, [isAdmin, role, location.pathname, navigate]);
 
   const getActiveTab = () => {
     const pathname = location.pathname;
