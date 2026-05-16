@@ -8,11 +8,7 @@ import { activityTable } from "../database/schema";
 import { subscribeToEvent } from "../events";
 import { activitySchema } from "../schemas";
 import { workspaceAccess } from "../utils/workspace-access-middleware";
-import {
-  ADMIN_WORKSPACE_ROLES,
-  assertAdminWorkspaceRole,
-  assertOwnTodoTask,
-} from "../utils/workspace-role";
+import { assertAdminWorkspaceRole } from "../utils/workspace-role";
 import createActivity from "./controllers/create-activity";
 import createComment from "./controllers/create-comment";
 import deleteComment from "./controllers/delete-comment";
@@ -20,18 +16,14 @@ import getActivities from "./controllers/get-activities";
 import updateComment from "./controllers/update-comment";
 
 /**
- * Authorises a member to mutate an activity comment. The activity must be of
- * type "comment", and for non-admins the related task must be the caller's
- * own Todo task. The controller will still enforce author-equality on the SQL
+ * Authorises a user to mutate an activity comment. The activity must be of
+ * type "comment". workspaceAccess.fromActivity has already verified workspace
+ * membership, and the controller still enforces author-equality on the SQL
  * UPDATE/DELETE.
  */
-async function assertCanMutateActivityCommentById(
-  activityId: string,
-  userId: string,
-) {
+async function assertCanMutateActivityCommentById(activityId: string) {
   const [existing] = await db
     .select({
-      taskId: activityTable.taskId,
       type: activityTable.type,
     })
     .from(activityTable)
@@ -40,14 +32,6 @@ async function assertCanMutateActivityCommentById(
 
   if (!existing || existing.type !== "comment") {
     throw new HTTPException(404, { message: "Comment not found" });
-  }
-
-  const ownership = await assertOwnTodoTask(existing.taskId, userId);
-  if (!ADMIN_WORKSPACE_ROLES.includes(ownership.role)) {
-    // Members must still pass the own-Todo rule, which assertOwnTodoTask has
-    // already enforced. Author-equality on the comment itself is enforced by
-    // the controller's SQL WHERE clause.
-    return;
   }
 }
 
@@ -147,7 +131,6 @@ const activity = new Hono<{
     async (c) => {
       const { taskId, comment } = c.req.valid("json");
       const userId = c.get("userId");
-      await assertOwnTodoTask(taskId, userId);
       const newComment = await createComment(taskId, userId, comment);
 
       return c.json(newComment);
@@ -179,7 +162,7 @@ const activity = new Hono<{
     async (c) => {
       const { activityId, comment } = c.req.valid("json");
       const userId = c.get("userId");
-      await assertCanMutateActivityCommentById(activityId, userId);
+      await assertCanMutateActivityCommentById(activityId);
       const updatedComment = await updateComment(userId, activityId, comment);
       return c.json(updatedComment);
     },
@@ -209,7 +192,7 @@ const activity = new Hono<{
     async (c) => {
       const { activityId } = c.req.valid("json");
       const userId = c.get("userId");
-      await assertCanMutateActivityCommentById(activityId, userId);
+      await assertCanMutateActivityCommentById(activityId);
       const deletedComment = await deleteComment(userId, activityId);
       return c.json(deletedComment);
     },

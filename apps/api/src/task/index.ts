@@ -23,6 +23,7 @@ import {
   assertAdminWorkspaceRole,
   assertOwnTodoTask,
   assertWorkspaceRole,
+  assertWorkspaceTaskAccess,
   TODO_STATUS_SLUG,
 } from "../utils/workspace-role";
 import bulkUpdateTasks from "./controllers/bulk-update-tasks";
@@ -704,7 +705,11 @@ const task = new Hono<{
       const { filename, contentType, size, surface } = c.req.valid("json");
       const currentUserId = c.get("userId");
 
-      await assertOwnTodoTask(id, currentUserId);
+      if (surface === "comment") {
+        await assertWorkspaceTaskAccess(id, currentUserId);
+      } else {
+        await assertOwnTodoTask(id, currentUserId);
+      }
 
       try {
         validateTaskAssetUploadInput(contentType, size);
@@ -790,7 +795,11 @@ const task = new Hono<{
       const { key, filename, contentType, size, surface } = c.req.valid("json");
       const userId = c.get("userId");
 
-      await assertOwnTodoTask(id, userId);
+      if (surface === "comment") {
+        await assertWorkspaceTaskAccess(id, userId);
+      } else {
+        await assertOwnTodoTask(id, userId);
+      }
 
       try {
         validateTaskAssetUploadInput(contentType, size);
