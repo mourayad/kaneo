@@ -11,6 +11,25 @@ describe("API integration: project creation", () => {
     await resetTestDatabase();
   });
 
+  it("rejects project creation for non-admin workspace members", async () => {
+    const member = await createWorkspaceMember({ role: "member" });
+    mockAuthenticatedSession(member.user);
+    const { app } = createApp();
+
+    const response = await app.request("/api/project", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        workspaceId: member.workspace.id,
+        name: "Member-created Project",
+        icon: "Folder",
+        slug: "member-created",
+      }),
+    });
+
+    expect(response.status).toBe(403);
+  });
+
   it("rejects unauthenticated project creation requests", async () => {
     mockAnonymousSession();
     const { app } = createApp();
@@ -32,8 +51,8 @@ describe("API integration: project creation", () => {
     await expect(response.text()).resolves.toBe("Unauthorized");
   });
 
-  it("creates a project for a workspace member and seeds default columns", async () => {
-    const member = await createWorkspaceMember();
+  it("creates a project for a workspace admin and seeds default columns", async () => {
+    const member = await createWorkspaceMember({ role: "admin" });
     mockAuthenticatedSession(member.user);
     const { app } = createApp();
 

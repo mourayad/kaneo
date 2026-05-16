@@ -13,6 +13,7 @@ import {
 } from "../plugins/slack/config";
 import { slackIntegrationSchema } from "../schemas";
 import { workspaceAccess } from "../utils/workspace-access-middleware";
+import { assertAdminWorkspaceRole } from "../utils/workspace-role";
 
 const slackIntegration = new Hono<{
   Variables: {
@@ -147,6 +148,7 @@ slackIntegration
     async (c) => {
       const { projectId } = c.req.valid("param");
       const body = c.req.valid("json");
+      await assertAdminWorkspaceRole(c.get("userId"), c.get("workspaceId"));
 
       const config = normalizeSlackConfig({
         webhookUrl: body.webhookUrl,
@@ -228,6 +230,7 @@ slackIntegration
     async (c) => {
       const { projectId } = c.req.valid("param");
       const body = c.req.valid("json");
+      await assertAdminWorkspaceRole(c.get("userId"), c.get("workspaceId"));
 
       const existing = await db.query.integrationTable.findFirst({
         where: and(
@@ -301,6 +304,7 @@ slackIntegration
     workspaceAccess.fromProject("projectId"),
     async (c) => {
       const { projectId } = c.req.valid("param");
+      await assertAdminWorkspaceRole(c.get("userId"), c.get("workspaceId"));
 
       const existing = await db.query.integrationTable.findFirst({
         where: and(

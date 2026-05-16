@@ -10,6 +10,7 @@ import {
 import { ShortcutNumber } from "@/components/ui/shortcut-number";
 import { useUpdateTaskStatus } from "@/hooks/mutations/task/use-update-task-status";
 import { useNumberedShortcuts } from "@/hooks/use-numbered-shortcuts";
+import { useWorkspacePermission } from "@/hooks/use-workspace-permission";
 import { getColumnIcon } from "@/lib/column";
 import { getStatusDisplayLabel } from "@/lib/i18n/domain";
 import { toast } from "@/lib/toast";
@@ -28,6 +29,7 @@ export default function TaskStatusPopover({
   const { t } = useTranslation();
   const [open, setOpen] = useState(false);
   const { project } = useProjectStore();
+  const { canChangeStatus } = useWorkspacePermission();
   const statusOptions =
     project?.columns?.map((col) => ({
       value: col.slug,
@@ -64,6 +66,11 @@ export default function TaskStatusPopover({
   );
 
   useNumberedShortcuts(open, shortcutOptions);
+
+  // Members may not change status — render the visual trigger but no popover.
+  if (!canChangeStatus()) {
+    return <>{children}</>;
+  }
 
   return (
     <Popover open={open} onOpenChange={setOpen}>

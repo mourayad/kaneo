@@ -1,18 +1,60 @@
+import { eq } from "drizzle-orm";
 import { Hono } from "hono";
+import { HTTPException } from "hono/http-exception";
 import { describeRoute, resolver, validator } from "hono-openapi";
 import * as v from "valibot";
+import db from "../database";
+import { activityTable } from "../database/schema";
 import { subscribeToEvent } from "../events";
 import { activitySchema } from "../schemas";
 import { workspaceAccess } from "../utils/workspace-access-middleware";
+import {
+  ADMIN_WORKSPACE_ROLES,
+  assertAdminWorkspaceRole,
+  assertOwnTodoTask,
+} from "../utils/workspace-role";
 import createActivity from "./controllers/create-activity";
 import createComment from "./controllers/create-comment";
 import deleteComment from "./controllers/delete-comment";
 import getActivities from "./controllers/get-activities";
 import updateComment from "./controllers/update-comment";
 
+/**
+ * Authorises a member to mutate an activity comment. The activity must be of
+ * type "comment", and for non-admins the related task must be the caller's
+ * own Todo task. The controller will still enforce author-equality on the SQL
+ * UPDATE/DELETE.
+ */
+async function assertCanMutateActivityCommentById(
+  activityId: string,
+  userId: string,
+) {
+  const [existing] = await db
+    .select({
+      taskId: activityTable.taskId,
+      type: activityTable.type,
+    })
+    .from(activityTable)
+    .where(eq(activityTable.id, activityId))
+    .limit(1);
+
+  if (!existing || existing.type !== "comment") {
+    throw new HTTPException(404, { message: "Comment not found" });
+  }
+
+  const ownership = await assertOwnTodoTask(existing.taskId, userId);
+  if (!ADMIN_WORKSPACE_ROLES.includes(ownership.role)) {
+    // Members must still pass the own-Todo rule, which assertOwnTodoTask has
+    // already enforced. Author-equality on the comment itself is enforced by
+    // the controller's SQL WHERE clause.
+    return;
+  }
+}
+
 const activity = new Hono<{
   Variables: {
     userId: string;
+    workspaceId: string;
   };
 }>()
   .get(
@@ -66,6 +108,9 @@ const activity = new Hono<{
     workspaceAccess.fromTaskId(),
     async (c) => {
       const { taskId, userId, message, type, eventData } = c.req.valid("json");
+      // System-style activity creation is admin-only — members must not be
+      // able to fabricate arbitrary timeline entries on any task.
+      await assertAdminWorkspaceRole(c.get("userId"), c.get("workspaceId"));
       const activity = await createActivity(
         taskId,
         type,
@@ -102,6 +147,7 @@ const activity = new Hono<{
     async (c) => {
       const { taskId, comment } = c.req.valid("json");
       const userId = c.get("userId");
+      await assertOwnTodoTask(taskId, userId);
       const newComment = await createComment(taskId, userId, comment);
 
       return c.json(newComment);
@@ -133,6 +179,7 @@ const activity = new Hono<{
     async (c) => {
       const { activityId, comment } = c.req.valid("json");
       const userId = c.get("userId");
+      await assertCanMutateActivityCommentById(activityId, userId);
       const updatedComment = await updateComment(userId, activityId, comment);
       return c.json(updatedComment);
     },
@@ -162,6 +209,7 @@ const activity = new Hono<{
     async (c) => {
       const { activityId } = c.req.valid("json");
       const userId = c.get("userId");
+      await assertCanMutateActivityCommentById(activityId, userId);
       const deletedComment = await deleteComment(userId, activityId);
       return c.json(deletedComment);
     },

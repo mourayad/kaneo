@@ -13,6 +13,7 @@ import {
 } from "../plugins/telegram/config";
 import { telegramIntegrationSchema } from "../schemas";
 import { workspaceAccess } from "../utils/workspace-access-middleware";
+import { assertAdminWorkspaceRole } from "../utils/workspace-role";
 import {
   buildNextTelegramConfigFromPatch,
   getTelegramIntegration,
@@ -108,6 +109,7 @@ telegramIntegration
     async (c) => {
       const { projectId } = c.req.valid("param");
       const body = c.req.valid("json");
+      await assertAdminWorkspaceRole(c.get("userId"), c.get("workspaceId"));
 
       const config = normalizeTelegramConfig({
         botToken: body.botToken,
@@ -191,6 +193,7 @@ telegramIntegration
     async (c) => {
       const { projectId } = c.req.valid("param");
       const body = c.req.valid("json");
+      await assertAdminWorkspaceRole(c.get("userId"), c.get("workspaceId"));
 
       const existing = await db.query.integrationTable.findFirst({
         where: and(
@@ -278,6 +281,7 @@ telegramIntegration
     workspaceAccess.fromProject("projectId"),
     async (c) => {
       const { projectId } = c.req.valid("param");
+      await assertAdminWorkspaceRole(c.get("userId"), c.get("workspaceId"));
 
       const existing = await db.query.integrationTable.findFirst({
         where: and(

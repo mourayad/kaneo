@@ -34,6 +34,7 @@ import {
 import useDeleteProject from "@/hooks/mutations/project/use-delete-project";
 import useGetProjects from "@/hooks/queries/project/use-get-projects";
 import useActiveWorkspace from "@/hooks/queries/workspace/use-active-workspace";
+import { useWorkspacePermission } from "@/hooks/use-workspace-permission";
 import { toast } from "@/lib/toast";
 import type { ProjectWithTasks } from "@/types/project";
 import CreateProjectModal from "./shared/modals/create-project-modal";
@@ -55,6 +56,7 @@ export function NavProjects() {
   const { data: projects } = useGetProjects({
     workspaceId: workspace?.id || "",
   });
+  const { isAdmin } = useWorkspacePermission();
   const queryClient = useQueryClient();
   const { mutateAsync: deleteProject } = useDeleteProject();
   const navigate = useNavigate();
@@ -161,58 +163,66 @@ export function NavProjects() {
                               {t("navigation:projectList.shareProject")}
                             </span>
                           </DropdownMenuItem>
-                          <DropdownMenuItem
-                            className="h-7 items-start cursor-pointer text-sm"
-                            onClick={() => {
-                              navigate({
-                                to: "/dashboard/settings/projects/$projectId/general",
-                                params: { projectId: project.id },
-                              });
-                            }}
-                          >
-                            <Settings className="text-muted-foreground" />
-                            <span>
-                              {t("navigation:projectList.projectSettings")}
-                            </span>
-                          </DropdownMenuItem>
-                          <DropdownMenuSeparator />
-                          <DropdownMenuItem
-                            className="h-7 items-start text-destructive cursor-pointer text-sm"
-                            onClick={() => {
-                              setProjectToDeleteID(project.id);
-                              setIsDeleteProjectModalOpen(true);
-                            }}
-                          >
-                            <Trash2 className="text-destructive" />
-                            <span>
-                              {t("navigation:projectList.deleteProject")}
-                            </span>
-                          </DropdownMenuItem>
+                          {isAdmin ? (
+                            <>
+                              <DropdownMenuItem
+                                className="h-7 items-start cursor-pointer text-sm"
+                                onClick={() => {
+                                  navigate({
+                                    to: "/dashboard/settings/projects/$projectId/general",
+                                    params: { projectId: project.id },
+                                  });
+                                }}
+                              >
+                                <Settings className="text-muted-foreground" />
+                                <span>
+                                  {t("navigation:projectList.projectSettings")}
+                                </span>
+                              </DropdownMenuItem>
+                              <DropdownMenuSeparator />
+                              <DropdownMenuItem
+                                className="h-7 items-start text-destructive cursor-pointer text-sm"
+                                onClick={() => {
+                                  setProjectToDeleteID(project.id);
+                                  setIsDeleteProjectModalOpen(true);
+                                }}
+                              >
+                                <Trash2 className="text-destructive" />
+                                <span>
+                                  {t("navigation:projectList.deleteProject")}
+                                </span>
+                              </DropdownMenuItem>
+                            </>
+                          ) : null}
                         </DropdownMenuContent>
                       </DropdownMenu>
                     </SidebarMenuItem>
                   );
                 })}
 
-                <SidebarMenuItem className="mt-1">
-                  <SidebarMenuButton
-                    size="default"
-                    className="h-8 ps-3.5 text-sm hover:bg-transparent hover:text-sidebar-accent-foreground active:bg-transparent"
-                    onClick={() => setIsCreateProjectModalOpen(true)}
-                  >
-                    <span>{t("navigation:projectList.addProject")}</span>
-                  </SidebarMenuButton>
-                </SidebarMenuItem>
+                {isAdmin ? (
+                  <SidebarMenuItem className="mt-1">
+                    <SidebarMenuButton
+                      size="default"
+                      className="h-8 ps-3.5 text-sm hover:bg-transparent hover:text-sidebar-accent-foreground active:bg-transparent"
+                      onClick={() => setIsCreateProjectModalOpen(true)}
+                    >
+                      <span>{t("navigation:projectList.addProject")}</span>
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
+                ) : null}
               </SidebarMenu>
             </SidebarGroupContent>
           </CollapsiblePanel>
         </SidebarGroup>
       </Collapsible>
 
-      <CreateProjectModal
-        open={isCreateProjectModalOpen}
-        onClose={() => setIsCreateProjectModalOpen(false)}
-      />
+      {isAdmin ? (
+        <CreateProjectModal
+          open={isCreateProjectModalOpen}
+          onClose={() => setIsCreateProjectModalOpen(false)}
+        />
+      ) : null}
 
       <AlertDialog
         open={isDeleteProjectModalOpen}

@@ -18,6 +18,8 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import useUpdateComment from "@/hooks/mutations/comment/use-update-comment";
+import useGetTask from "@/hooks/queries/task/use-get-task";
+import { useWorkspacePermission } from "@/hooks/use-workspace-permission";
 import { formatDateTime, formatRelativeTime } from "@/lib/format";
 import { toast } from "@/lib/toast";
 
@@ -51,8 +53,10 @@ export default function CommentCard({
   const [editedContent, setEditedContent] = useState(content);
   const { mutateAsync: updateComment, isPending } = useUpdateComment();
   const queryClient = useQueryClient();
+  const { data: task } = useGetTask(taskId);
+  const { canCommentOnTask } = useWorkspacePermission();
 
-  const canEdit = currentUser?.id === user?.id;
+  const canEdit = currentUser?.id === user?.id && canCommentOnTask(task);
   const isFromGitHub = externalSource === "github";
   const githubProfileUrl =
     isFromGitHub && user?.name ? `https://github.com/${user.name}` : null;

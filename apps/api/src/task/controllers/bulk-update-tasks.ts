@@ -67,7 +67,7 @@ async function bulkUpdateTasks({
   }
 
   const [membership] = await db
-    .select({ id: workspaceUserTable.id })
+    .select({ role: workspaceUserTable.role })
     .from(workspaceUserTable)
     .where(
       and(
@@ -80,6 +80,15 @@ async function bulkUpdateTasks({
   if (!membership) {
     throw new HTTPException(403, {
       message: "You don't have access to this workspace",
+    });
+  }
+
+  // Bulk task operations are always owner/admin only — never available to
+  // branch members regardless of the per-task own-Todo rule.
+  const role = membership.role?.toLowerCase();
+  if (role !== "owner" && role !== "admin") {
+    throw new HTTPException(403, {
+      message: "Only the workspace owner or admin can perform bulk operations",
     });
   }
 

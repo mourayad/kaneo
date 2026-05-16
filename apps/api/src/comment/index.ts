@@ -1,16 +1,61 @@
+import { eq } from "drizzle-orm";
 import { Hono } from "hono";
+import { HTTPException } from "hono/http-exception";
 import { describeRoute, resolver, validator } from "hono-openapi";
 import * as v from "valibot";
+import db from "../database";
+import { commentTable } from "../database/schema";
 import { commentSchema } from "../schemas";
 import { workspaceAccess } from "../utils/workspace-access-middleware";
+import {
+  ADMIN_WORKSPACE_ROLES,
+  assertOwnTodoTask,
+} from "../utils/workspace-role";
 import createComment from "./controllers/create-comment";
 import deleteComment from "./controllers/delete-comment";
 import getComments from "./controllers/get-comments";
 import updateComment from "./controllers/update-comment";
 
+/**
+ * Loads the comment, applies the own-Todo rule for members on the related
+ * task, and lets the existing controller-level author check decide whether
+ * admins/members may proceed. Admin callers are still blocked from editing
+ * other people's comments (existing behaviour).
+ */
+async function assertMemberCanTouchCommentByCommentId(
+  commentId: string,
+  userId: string,
+) {
+  const [existing] = await db
+    .select({
+      taskId: commentTable.taskId,
+      authorId: commentTable.userId,
+    })
+    .from(commentTable)
+    .where(eq(commentTable.id, commentId))
+    .limit(1);
+
+  if (!existing) {
+    throw new HTTPException(404, { message: "Comment not found" });
+  }
+
+  // For admins, skip the own-Todo restriction. Author check still applies
+  // inside the controller. For members, force own-Todo on the related task.
+  const ownership = await assertOwnTodoTask(existing.taskId, userId);
+  if (
+    !ADMIN_WORKSPACE_ROLES.includes(ownership.role) &&
+    existing.authorId !== userId
+  ) {
+    throw new HTTPException(403, {
+      message: "Only the author can edit this comment",
+    });
+  }
+}
+
 const comment = new Hono<{
   Variables: {
     userId: string;
+    workspaceId: string;
   };
 }>()
   .get(
@@ -63,6 +108,7 @@ const comment = new Hono<{
       const { taskId } = c.req.valid("param");
       const { content } = c.req.valid("json");
       const userId = c.get("userId");
+      await assertOwnTodoTask(taskId, userId);
       const newComment = await createComment(taskId, userId, content);
       return c.json(newComment);
     },
@@ -92,6 +138,7 @@ const comment = new Hono<{
       const { id } = c.req.valid("param");
       const { content } = c.req.valid("json");
       const userId = c.get("userId");
+      await assertMemberCanTouchCommentByCommentId(id, userId);
       const updated = await updateComment(userId, id, content);
       return c.json(updated);
     },
@@ -116,6 +163,7 @@ const comment = new Hono<{
     async (c) => {
       const { id } = c.req.valid("param");
       const userId = c.get("userId");
+      await assertMemberCanTouchCommentByCommentId(id, userId);
       const deleted = await deleteComment(userId, id);
       return c.json(deleted);
     },

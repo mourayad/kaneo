@@ -18,6 +18,13 @@ import {
   validateTaskAssetUploadInput,
 } from "../storage/s3";
 import { workspaceAccess } from "../utils/workspace-access-middleware";
+import {
+  ADMIN_WORKSPACE_ROLES,
+  assertAdminWorkspaceRole,
+  assertOwnTodoTask,
+  assertWorkspaceRole,
+  TODO_STATUS_SLUG,
+} from "../utils/workspace-role";
 import bulkUpdateTasks from "./controllers/bulk-update-tasks";
 import createTask from "./controllers/create-task";
 import deleteTask from "./controllers/delete-task";
@@ -38,6 +45,7 @@ import { VALID_PRIORITIES } from "./validate-task-fields";
 const task = new Hono<{
   Variables: {
     userId: string;
+    workspaceId: string;
   };
 }>()
   .get(
@@ -197,10 +205,30 @@ const task = new Hono<{
         userId,
       } = c.req.valid("json");
 
+      const currentUserId = c.get("userId");
+      const workspaceId = c.get("workspaceId");
+      const role = await assertWorkspaceRole(currentUserId, workspaceId, [
+        "owner",
+        "admin",
+        "member",
+      ]);
+
+      // Members are restricted to the Todo column and may never reassign.
+      let resolvedAssignee: string | null | undefined = userId;
+      if (!ADMIN_WORKSPACE_ROLES.includes(role)) {
+        if ((status || "to-do") !== TODO_STATUS_SLUG) {
+          throw new HTTPException(403, {
+            message: "Members can only create tasks in the Todo column",
+          });
+        }
+        // Force assignee to the creator: members cannot assign others.
+        resolvedAssignee = currentUserId;
+      }
+
       const task = await createTask({
         projectId,
-        currentUserId: c.get("userId"),
-        userId: userId,
+        currentUserId,
+        userId: resolvedAssignee,
         title,
         description,
         startDate: startDate ? new Date(startDate) : undefined,
@@ -274,6 +302,9 @@ const task = new Hono<{
       const { destinationProjectId, destinationStatus } = c.req.valid("json");
       const currentUserId = c.get("userId");
 
+      // Cross-project moves are always admin-only.
+      await assertAdminWorkspaceRole(currentUserId, c.get("workspaceId"));
+
       const result = await moveTask({
         taskId: id,
         destinationProjectId,
@@ -330,18 +361,50 @@ const task = new Hono<{
       } = c.req.valid("json");
 
       const currentUserId = c.get("userId");
+      const ownership = await assertOwnTodoTask(id, currentUserId);
+      const isAdminCaller = ADMIN_WORKSPACE_ROLES.includes(ownership.role);
+
+      // Members may never change assignee, project, or move out of Todo.
+      let resolvedAssigneeId = userId;
+      let resolvedProjectId = projectId;
+      let resolvedStatus = status;
+      if (!isAdminCaller) {
+        if (projectId !== ownership.projectId) {
+          throw new HTTPException(403, {
+            message: "Members cannot move tasks across projects",
+          });
+        }
+        if (status !== TODO_STATUS_SLUG) {
+          throw new HTTPException(403, {
+            message: "Members can only update their own Todo tasks",
+          });
+        }
+        if (
+          userId !== undefined &&
+          userId !== null &&
+          userId !== currentUserId
+        ) {
+          throw new HTTPException(403, {
+            message: "Members cannot reassign tasks",
+          });
+        }
+        // Keep assignee/projectId/status pinned to existing ownership.
+        resolvedAssigneeId = currentUserId;
+        resolvedProjectId = ownership.projectId;
+        resolvedStatus = TODO_STATUS_SLUG;
+      }
 
       const task = await updateTask(
         id,
         title,
-        status,
+        resolvedStatus,
         startDate ? new Date(startDate) : undefined,
         dueDate ? new Date(dueDate) : undefined,
-        projectId,
+        resolvedProjectId,
         description,
         priority,
         position,
-        userId,
+        resolvedAssigneeId,
         currentUserId,
       );
 
@@ -411,6 +474,9 @@ const task = new Hono<{
       const { tasks } = c.req.valid("json");
       const currentUserId = c.get("userId");
 
+      // Bulk import is owner/admin only.
+      await assertAdminWorkspaceRole(currentUserId, c.get("workspaceId"));
+
       const result = await importTasks(projectId, tasks, currentUserId);
 
       return c.json(result);
@@ -437,6 +503,7 @@ const task = new Hono<{
       const { id } = c.req.valid("param");
 
       const currentUserId = c.get("userId");
+      await assertOwnTodoTask(id, currentUserId);
       const task = await deleteTask(id, currentUserId);
 
       return c.json(task);
@@ -464,6 +531,10 @@ const task = new Hono<{
       const { id } = c.req.valid("param");
       const { status } = c.req.valid("json");
       const currentUserId = c.get("userId");
+
+      // Status changes always require admin: members may not move tasks across
+      // statuses, even into the same column.
+      await assertAdminWorkspaceRole(currentUserId, c.get("workspaceId"));
 
       const task = await updateTaskStatus({ id, status, currentUserId });
 
@@ -493,6 +564,8 @@ const task = new Hono<{
       const { priority } = c.req.valid("json");
       const currentUserId = c.get("userId");
 
+      await assertOwnTodoTask(id, currentUserId);
+
       const task = await updateTaskPriority({ id, priority, currentUserId });
 
       return c.json(task);
@@ -521,6 +594,9 @@ const task = new Hono<{
       const { userId } = c.req.valid("json");
       const currentUserId = c.get("userId");
 
+      // Members may never reassign — even self-assignment.
+      await assertAdminWorkspaceRole(currentUserId, c.get("workspaceId"));
+
       const task = await updateTaskAssignee({ id, userId, currentUserId });
 
       return c.json(task);
@@ -548,6 +624,8 @@ const task = new Hono<{
       const { id } = c.req.valid("param");
       const { dueDate = null } = c.req.valid("json");
       const currentUserId = c.get("userId");
+
+      await assertOwnTodoTask(id, currentUserId);
 
       const task = await updateTaskDueDate({
         id,
@@ -581,6 +659,8 @@ const task = new Hono<{
       const { id } = c.req.valid("param");
       const { title } = c.req.valid("json");
       const currentUserId = c.get("userId");
+
+      await assertOwnTodoTask(id, currentUserId);
 
       const task = await updateTaskTitle({ id, title, currentUserId });
 
@@ -618,6 +698,9 @@ const task = new Hono<{
     async (c) => {
       const { id } = c.req.valid("param");
       const { filename, contentType, size, surface } = c.req.valid("json");
+      const currentUserId = c.get("userId");
+
+      await assertOwnTodoTask(id, currentUserId);
 
       try {
         validateTaskAssetUploadInput(contentType, size);
@@ -702,6 +785,8 @@ const task = new Hono<{
       const { id } = c.req.valid("param");
       const { key, filename, contentType, size, surface } = c.req.valid("json");
       const userId = c.get("userId");
+
+      await assertOwnTodoTask(id, userId);
 
       try {
         validateTaskAssetUploadInput(contentType, size);
@@ -789,6 +874,12 @@ const task = new Hono<{
               id: assetTable.id,
             });
 
+      if (!asset) {
+        throw new HTTPException(500, {
+          message: "Failed to persist image asset",
+        });
+      }
+
       return c.json({
         id: asset.id,
         url: new URL(`/api/asset/${asset.id}`, c.req.url).toString(),
@@ -817,6 +908,8 @@ const task = new Hono<{
       const { id } = c.req.valid("param");
       const { description } = c.req.valid("json");
       const currentUserId = c.get("userId");
+
+      await assertOwnTodoTask(id, currentUserId);
 
       const task = await updateTaskDescription({
         id,

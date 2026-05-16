@@ -5,12 +5,14 @@ import {
   useNavigate,
 } from "@tanstack/react-router";
 import { ChevronLeft } from "lucide-react";
+import { useEffect } from "react";
 import { useTranslation } from "react-i18next";
 import PageTitle from "@/components/page-title";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import useGetProjects from "@/hooks/queries/project/use-get-projects";
 import useActiveWorkspace from "@/hooks/queries/workspace/use-active-workspace";
+import { useWorkspacePermission } from "@/hooks/use-workspace-permission";
 
 export const Route = createFileRoute(
   "/_layout/_authenticated/dashboard/settings",
@@ -26,6 +28,23 @@ function SettingsLayout() {
   const { data: projects } = useGetProjects({
     workspaceId: workspace?.id ?? "",
   });
+  const { isAdmin } = useWorkspacePermission();
+
+  // Members must never reach workspace or project mutation pages even by typing
+  // the URL — bounce them to their account settings. Backend still enforces.
+  useEffect(() => {
+    if (isAdmin) return;
+    const pathname = location.pathname;
+    if (
+      pathname.includes("/dashboard/settings/workspace") ||
+      pathname.includes("/dashboard/settings/projects")
+    ) {
+      navigate({
+        to: "/dashboard/settings/account/information",
+        replace: true,
+      });
+    }
+  }, [isAdmin, location.pathname, navigate]);
 
   const getActiveTab = () => {
     const pathname = location.pathname;
@@ -78,25 +97,31 @@ function SettingsLayout() {
                 >
                   {t("settings:account")}
                 </TabsTrigger>
-                <TabsTrigger
-                  value="workspace"
-                  className="[&[data-state=active]]:border [&[data-state=active]]:border-border [&[data-state=active]]:rounded-md [&[data-state=active]]:bg-card"
-                  onClick={() =>
-                    navigate({ to: "/dashboard/settings/workspace/general" })
-                  }
-                >
-                  {t("navigation:page.settingsWorkspaceTab")}
-                </TabsTrigger>
-                <TabsTrigger
-                  disabled={projects?.length === 0}
-                  value="project"
-                  className="[&[data-state=active]]:border [&[data-state=active]]:border-border [&[data-state=active]]:rounded-md [&[data-state=active]]:bg-card"
-                  onClick={() =>
-                    navigate({ to: "/dashboard/settings/projects" })
-                  }
-                >
-                  {t("navigation:sidebar.projects")}
-                </TabsTrigger>
+                {isAdmin ? (
+                  <>
+                    <TabsTrigger
+                      value="workspace"
+                      className="[&[data-state=active]]:border [&[data-state=active]]:border-border [&[data-state=active]]:rounded-md [&[data-state=active]]:bg-card"
+                      onClick={() =>
+                        navigate({
+                          to: "/dashboard/settings/workspace/general",
+                        })
+                      }
+                    >
+                      {t("navigation:page.settingsWorkspaceTab")}
+                    </TabsTrigger>
+                    <TabsTrigger
+                      disabled={projects?.length === 0}
+                      value="project"
+                      className="[&[data-state=active]]:border [&[data-state=active]]:border-border [&[data-state=active]]:rounded-md [&[data-state=active]]:bg-card"
+                      onClick={() =>
+                        navigate({ to: "/dashboard/settings/projects" })
+                      }
+                    >
+                      {t("navigation:sidebar.projects")}
+                    </TabsTrigger>
+                  </>
+                ) : null}
               </TabsList>
             </Tabs>
           </div>

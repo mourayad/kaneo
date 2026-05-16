@@ -19,7 +19,7 @@ async function createTask({
 }: {
   projectId: string;
   currentUserId: string;
-  userId?: string;
+  userId?: string | null;
   title: string;
   status: string;
   startDate?: Date;
@@ -65,6 +65,7 @@ async function createTask({
     .values({
       projectId,
       userId: userId || null,
+      createdBy: currentUserId || null,
       title: title || "",
       status: resolvedStatus,
       columnId: column?.id ?? null,

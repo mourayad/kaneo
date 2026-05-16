@@ -19,6 +19,7 @@ import { produce } from "immer";
 import { useEffect, useState } from "react";
 import { useUpdateTask } from "@/hooks/mutations/task/use-update-task";
 import { useRegisterShortcuts } from "@/hooks/use-keyboard-shortcuts";
+import { useWorkspacePermission } from "@/hooks/use-workspace-permission";
 import useBulkSelectionStore from "@/store/bulk-selection";
 import useProjectStore from "@/store/project";
 import type { ProjectWithTasks } from "@/types/project";
@@ -34,6 +35,9 @@ type KanbanBoardProps = {
 function KanbanBoard({ project, disableDragDrop = false }: KanbanBoardProps) {
   const queryClient = useQueryClient();
   const { setProject } = useProjectStore();
+  const { isAdmin } = useWorkspacePermission();
+  // Members may never drag/drop or status-change tasks; preserve admin UX.
+  const dndDisabled = disableDragDrop || !isAdmin;
   const {
     setAvailableTasks,
     focusNext,
@@ -115,10 +119,15 @@ function KanbanBoard({ project, disableDragDrop = false }: KanbanBoardProps) {
   };
 
   const handleDragStart = (event: DragStartEvent) => {
+    if (dndDisabled) return;
     setActiveId(event.active.id);
   };
 
   const handleDragEnd = (event: DragEndEvent) => {
+    if (dndDisabled) {
+      setActiveId(null);
+      return;
+    }
     const { active, over } = event;
     setActiveId(null);
 
@@ -240,7 +249,7 @@ function KanbanBoard({ project, disableDragDrop = false }: KanbanBoardProps) {
 
   return (
     <DndContext
-      sensors={sensors}
+      sensors={dndDisabled ? [] : sensors}
       collisionDetection={closestCorners}
       onDragStart={handleDragStart}
       onDragEnd={handleDragEnd}

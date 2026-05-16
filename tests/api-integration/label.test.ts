@@ -31,8 +31,8 @@ describe("API integration: labels", () => {
     await expect(response.text()).resolves.toBe("Unauthorized");
   });
 
-  it("creates a label in a workspace for a member", async () => {
-    const member = await createWorkspaceMember();
+  it("creates a workspace-scoped label for an admin", async () => {
+    const member = await createWorkspaceMember({ role: "admin" });
     mockAuthenticatedSession(member.user);
     const { app } = createApp();
 
@@ -68,6 +68,28 @@ describe("API integration: labels", () => {
       name: "Bug",
       color: "#ef4444",
     });
+  });
+
+  it("rejects workspace-level label creation by branch members", async () => {
+    const member = await createWorkspaceMember({ role: "member" });
+    mockAuthenticatedSession(member.user);
+    const { app } = createApp();
+
+    const response = await app.request("/api/label", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        name: "Member-defined",
+        color: "#10b981",
+        workspaceId: member.workspace.id,
+      }),
+    });
+
+    expect(response.status).toBe(403);
+    const persisted = await db.query.labelTable.findFirst({
+      where: eq(schema.labelTable.name, "Member-defined"),
+    });
+    expect(persisted).toBeUndefined();
   });
 
   it("rejects label creation for users outside the workspace", async () => {

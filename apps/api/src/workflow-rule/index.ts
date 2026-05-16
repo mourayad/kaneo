@@ -2,6 +2,7 @@ import { Hono } from "hono";
 import { describeRoute, resolver, validator } from "hono-openapi";
 import * as v from "valibot";
 import { workspaceAccess } from "../utils/workspace-access-middleware";
+import { assertAdminWorkspaceRole } from "../utils/workspace-role";
 import deleteWorkflowRule from "./controllers/delete-workflow-rule";
 import getWorkflowRules from "./controllers/get-workflow-rules";
 import upsertWorkflowRule from "./controllers/upsert-workflow-rule";
@@ -9,6 +10,7 @@ import upsertWorkflowRule from "./controllers/upsert-workflow-rule";
 const workflowRule = new Hono<{
   Variables: {
     userId: string;
+    workspaceId: string;
   };
 }>()
   .get(
@@ -62,6 +64,7 @@ const workflowRule = new Hono<{
     async (c) => {
       const { projectId } = c.req.valid("param");
       const { integrationType, eventType, columnId } = c.req.valid("json");
+      await assertAdminWorkspaceRole(c.get("userId"), c.get("workspaceId"));
       const result = await upsertWorkflowRule({
         projectId,
         integrationType,
@@ -90,6 +93,7 @@ const workflowRule = new Hono<{
     workspaceAccess.fromWorkflowRule("id"),
     async (c) => {
       const { id } = c.req.valid("param");
+      await assertAdminWorkspaceRole(c.get("userId"), c.get("workspaceId"));
       const result = await deleteWorkflowRule(id);
       return c.json(result);
     },

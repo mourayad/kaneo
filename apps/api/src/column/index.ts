@@ -2,6 +2,7 @@ import { Hono } from "hono";
 import { describeRoute, resolver, validator } from "hono-openapi";
 import * as v from "valibot";
 import { workspaceAccess } from "../utils/workspace-access-middleware";
+import { assertAdminWorkspaceRole } from "../utils/workspace-role";
 import createColumn from "./controllers/create-column";
 import deleteColumn from "./controllers/delete-column";
 import getColumns from "./controllers/get-columns";
@@ -11,6 +12,7 @@ import updateColumn from "./controllers/update-column";
 const column = new Hono<{
   Variables: {
     userId: string;
+    workspaceId: string;
   };
 }>()
   .get(
@@ -65,6 +67,7 @@ const column = new Hono<{
     async (c) => {
       const { projectId } = c.req.valid("param");
       const { name, icon, color, isFinal } = c.req.valid("json");
+      await assertAdminWorkspaceRole(c.get("userId"), c.get("workspaceId"));
       const result = await createColumn({
         projectId,
         name,
@@ -106,6 +109,7 @@ const column = new Hono<{
     async (c) => {
       const { projectId } = c.req.valid("param");
       const { columns } = c.req.valid("json");
+      await assertAdminWorkspaceRole(c.get("userId"), c.get("workspaceId"));
       const result = await reorderColumns(projectId, columns);
       return c.json(result);
     },
@@ -139,6 +143,7 @@ const column = new Hono<{
     async (c) => {
       const { id } = c.req.valid("param");
       const data = c.req.valid("json");
+      await assertAdminWorkspaceRole(c.get("userId"), c.get("workspaceId"));
       const result = await updateColumn(id, data);
       return c.json(result);
     },
@@ -162,6 +167,7 @@ const column = new Hono<{
     workspaceAccess.fromColumn("id"),
     async (c) => {
       const { id } = c.req.valid("param");
+      await assertAdminWorkspaceRole(c.get("userId"), c.get("workspaceId"));
       const result = await deleteColumn(id);
       return c.json(result);
     },
