@@ -7,20 +7,15 @@ import db from "../database";
 import { commentTable } from "../database/schema";
 import { commentSchema } from "../schemas";
 import { workspaceAccess } from "../utils/workspace-access-middleware";
-import {
-  ADMIN_WORKSPACE_ROLES,
-  assertOwnTodoTask,
-} from "../utils/workspace-role";
 import createComment from "./controllers/create-comment";
 import deleteComment from "./controllers/delete-comment";
 import getComments from "./controllers/get-comments";
 import updateComment from "./controllers/update-comment";
 
 /**
- * Loads the comment, applies the own-Todo rule for members on the related
- * task, and lets the existing controller-level author check decide whether
- * admins/members may proceed. Admin callers are still blocked from editing
- * other people's comments (existing behaviour).
+ * Loads the comment and lets the existing controller-level author check decide
+ * whether the caller may proceed. workspaceAccess.fromComment has already
+ * verified that the caller belongs to the task's workspace.
  */
 async function assertMemberCanTouchCommentByCommentId(
   commentId: string,
@@ -28,7 +23,6 @@ async function assertMemberCanTouchCommentByCommentId(
 ) {
   const [existing] = await db
     .select({
-      taskId: commentTable.taskId,
       authorId: commentTable.userId,
     })
     .from(commentTable)
@@ -39,13 +33,7 @@ async function assertMemberCanTouchCommentByCommentId(
     throw new HTTPException(404, { message: "Comment not found" });
   }
 
-  // For admins, skip the own-Todo restriction. Author check still applies
-  // inside the controller. For members, force own-Todo on the related task.
-  const ownership = await assertOwnTodoTask(existing.taskId, userId);
-  if (
-    !ADMIN_WORKSPACE_ROLES.includes(ownership.role) &&
-    existing.authorId !== userId
-  ) {
+  if (existing.authorId !== userId) {
     throw new HTTPException(403, {
       message: "Only the author can edit this comment",
     });
@@ -108,7 +96,6 @@ const comment = new Hono<{
       const { taskId } = c.req.valid("param");
       const { content } = c.req.valid("json");
       const userId = c.get("userId");
-      await assertOwnTodoTask(taskId, userId);
       const newComment = await createComment(taskId, userId, content);
       return c.json(newComment);
     },

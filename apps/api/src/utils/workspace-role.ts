@@ -153,6 +153,43 @@ export async function assertOwnTodoTask(
   return { ...task, role };
 }
 
+export async function assertWorkspaceTaskAccess(
+  taskId: string,
+  userId: string,
+): Promise<TaskOwnershipContext> {
+  if (!userId) {
+    throw new HTTPException(401, { message: "Unauthorized" });
+  }
+
+  const [task] = await db
+    .select({
+      taskId: taskTable.id,
+      projectId: taskTable.projectId,
+      workspaceId: projectTable.workspaceId,
+      createdBy: taskTable.createdBy,
+      assigneeId: taskTable.userId,
+      status: taskTable.status,
+    })
+    .from(taskTable)
+    .innerJoin(projectTable, eq(taskTable.projectId, projectTable.id))
+    .where(eq(taskTable.id, taskId))
+    .limit(1);
+
+  if (!task) {
+    throw new HTTPException(404, { message: "Task not found" });
+  }
+
+  const role = await getWorkspaceRole(userId, task.workspaceId);
+
+  if (!role) {
+    throw new HTTPException(403, {
+      message: "You don't have access to this workspace",
+    });
+  }
+
+  return { ...task, role };
+}
+
 /**
  * Comma-separated, normalised (trimmed, lowercase) list of emails permitted
  * to create workspaces. Empty/unset means "no restriction" (default).

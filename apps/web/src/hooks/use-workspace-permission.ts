@@ -111,9 +111,10 @@ export function useWorkspacePermission() {
       // True for admins or for members on their own Todo tasks.
       canEditTask,
 
-      // True for admins or for members commenting/uploading on their own Todo.
+      // True for admins or workspace members commenting on accessible tasks.
       canCommentOnTask(task?: TaskOwnership | null) {
-        return canEditTask(task);
+        if (!task) return false;
+        return isAdmin || isMember;
       },
 
       // Members never change assignee. Admins can.
