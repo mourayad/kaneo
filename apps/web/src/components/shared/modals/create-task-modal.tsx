@@ -322,7 +322,7 @@ function CreateTaskModal({
       return null;
     }
 
-    const draftStatus = "planned";
+    const draftStatus = status ?? "to-do";
     const draftPromise = createTask({
       title: title.trim() || t("common:modals.createTask.untitledTask"),
       description: description.trim() || "",
@@ -359,6 +359,7 @@ function CreateTaskModal({
     dueDate,
     priority,
     resolvedProjectId,
+    status,
     title,
     t,
   ]);
